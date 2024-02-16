@@ -1,0 +1,192 @@
+<%-include('header.ejs')%>
+
+<div class="chat-page">
+    <div class="top-chatbox">
+        <div class="room-display-box" id="roomDisplayBox">
+            <div class="room-list">채팅방 목록</div>
+        </div>
+        <div class="chat-display-box">
+            <div class="toolbar">
+                <div class="current-room">현재 채팅방: public</div>
+                <button class="leave-button" id="leaveBtn">방 나가기</button>
+            </div>
+            <div class="chat-space" id="chatSpace"></div>
+        </div>
+    </div>
+    <form class="bottom-chatbox" id="form">
+        <div class="room-input-box">
+            <div class="room-label">채팅방 입력</div>
+            <input class="room-input" id="roomInput" />
+            <button class="join-room" type="button" id="joinRoom">참가</button>
+        </div>
+        <div class="chat-input-box">
+            <button class="add-file">
+                <img src="/img/plus.png" />
+            </button>
+            <input class="chat-input" type="text" id="chatInput" placeholder="메세지를 입력하세요" />
+            <button class="chat-send-btn" type="submit" id="chatSendBtn">asd</button>
+        </div>
+    </form>
+</div>
+
+<!-- 닉네임 팝업창 -->
+<div class="nickname-popup open" id="popup">
+    <label for="nickname">채팅에 사용할 닉네임을 입력해주세요: </label>
+    <input type="text" id="nickname" placeholder="Your Nickname" />
+    <button onclick="submitNickname()" id="popupBtn">확인</button>
+</div>
+<!-- 닉네임 팝업창 -->
+
+<script>
+    const socket = io('http://localhost:3002'); // socket.io 서버임
+    const joinRoomBtn = document.getElementById('joinRoom');
+    const roomInput = document.getElementById('roomInput');
+    const messageInput = document.getElementById('chatInput');
+    const nicknameInput = document.getElementById('nickname');
+    const leaveBtn = document.getElementById('leaveBtn');
+    const roomDisplayBox = document.getElementById('roomDisplayBox');
+    const form = document.getElementById('form');
+
+    var nicknameSave;
+    var nicknameOther;
+    var roomNow = "public";
+    var roomList = ['public'];
+
+    window.onload = function () {
+
+        displayRoomList();
+
+        socket.on('connect', () => {
+            console.log('소켓 연결 확인용');
+        });
+
+        socket.on('current-room', room => {
+            console.log('현재 채팅방 확인용', room)
+            roomNow = room;
+            $('.current-room').text(`현재 채팅방: ${room}`);
+        })
+
+        socket.on('receive-message', (message, nicknameReceive, room) => {
+            console.log('어디보자');
+            if (nicknameSave !== nicknameReceive) {
+                console.log('닉넴불일치');
+                nicknameOther = nicknameReceive;
+                if(roomNow === room){
+                    displayOtherMsg(message);
+                } else {
+                    console.log('방 불일치');
+                }
+            } else {
+                console.log('닉넴일치');
+            }
+        });
+
+        form.addEventListener('submit', e => {
+            e.preventDefault();
+            const message = messageInput.value;
+            const room = roomNow;
+
+            if (message === '') {
+                return;
+            }
+            displayMyMsg(message);
+
+            socket.emit('send-message', message, nicknameSave, room);
+            messageInput.value = '';
+        });
+
+        // $.ajax({
+        //     url: '/chat/save',
+        //     type: 'POST',
+        //     contentType: 'json',
+        //     data: {
+        //         socketId: socket.id,
+        //         content: messageInput.value,
+        //         nickname: nicknameSave,
+        //         roomNow: roomNow
+        //     },
+        //     success: function(data){
+        //         if(data){
+        //             console.log('채팅 저장 완료');
+        //         } else {
+
+        //         }
+        //     },
+        //     error: function(err){
+        //         console.log('에러메세지:', err);
+        //     }
+        // });
+
+        joinRoomBtn.addEventListener('click', e => {
+            const room = roomInput.value;
+            socket.emit('join-room', room);
+            if (!roomList.includes(room) && !room == '') {
+                roomList.push(room);
+            } else {
+                roomInput.value = '';
+                return;
+            }
+            displayRoomList();
+            console.log('방 리스트', roomList, '방 리스트');
+            roomInput.value = '';
+        });
+
+        leaveBtn.addEventListener('click', e => {
+            let roomToRemove = roomList.indexOf(roomNow);
+            if (roomToRemove !== -1) {
+                roomList.splice(roomToRemove, 1);
+                let removeRoomDisplay = document.getElementById(roomNow);
+                roomDisplayBox.removeChild(removeRoomDisplay);
+            }
+            console.log('방:', roomNow, '나감');
+            socket.emit('leave-room', roomNow);
+            roomNow = roomList[roomList.length-1];
+            console.log('룸나우', roomNow, '룸리스트', roomList);
+            $('.current-room').text(`현재 채팅방: ${roomList[roomList.length - 1]}`);
+        });
+    };
+
+    function submitNickname() {
+        var nickname = nicknameInput.value;
+        nicknameSave = nickname;
+
+        if (nickname) {
+            $('#popup').removeClass('open');
+            alert('반갑습니다, ' + nickname + '님!');
+            displayMessage(`You connected with ID: ${socket.id} Nickname: ${nicknameSave}`);
+        } else {
+            alert('닉네임을 제대로 입력해주세요!');
+        }
+    }
+
+    function displayMessage(message) {
+        const div = document.createElement('div');
+        div.textContent = message;
+        document.getElementById('chatSpace').append(div);
+    }
+
+    function displayMyMsg(message) {
+        const div = document.createElement('div');
+        div.innerHTML = `${message}`;
+        document.getElementById('chatSpace').append(div);
+        div.classList.add('myMessage');
+    }
+
+    function displayOtherMsg(message) {
+        const div = document.createElement('div');
+        div.innerHTML = `${nicknameOther}: ${message}`;
+        document.getElementById('chatSpace').append(div);
+        div.classList.add('otherMessage');
+    }
+
+    function displayRoomList() {
+        const div = document.createElement('div');
+        for (let i = 0; i < roomList.length; i++) {
+            div.id = `${roomList[i]}`;
+            div.innerHTML = `${roomList[i]}`;
+            document.getElementById('roomDisplayBox').append(div);
+        }
+    }
+</script>
+
+<%-include('footer.ejs')%>

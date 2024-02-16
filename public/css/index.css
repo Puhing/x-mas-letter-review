@@ -1,0 +1,138 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Noto Sans', sans-serif;
+}
+
+.playing {
+    animation: playing-animation 2s linear infinite;
+}
+
+.folding {
+    animation: folding-animation 1s ease forwards;
+}
+
+.audio-player {
+    display: flex;
+    position: fixed;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    right: 30%;
+    left: 30%;
+}
+
+.audio-player .container {
+    color: white;
+    margin-top: 20px;
+    display: flex;
+    width: 300px;
+    height: 45px;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #ff5e0e;
+    border-radius: 20px;
+    border: 2px solid white;
+
+    cursor: pointer;
+    transition: transform 0.3s;
+}
+
+.audio-player .container:hover {
+    transform: scale(1.02);
+}
+
+.audio-player .container:active {
+    transform: scale(0.99);
+}
+
+@keyframes folding-animation {
+    0% {
+        transform: translateX(10vw);
+        width: 50%;
+    }
+    100% {
+        transform: translateX(66vw);
+        width: 43px;
+    }
+}
+
+@keyframes playing-animation {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.audio-player .container .fa-play {
+    margin-left: 15px;
+}
+
+.audio-player .container img {
+    width: 30px;
+    height: 30px;
+    border-radius: 20px;
+    margin-right: 5px;
+}
+
+.main-page {
+    display: flex;
+    flex-direction: column;
+    background-image: url('/img/background.png');
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+}
+
+.main-page .main-wrap {
+    display: flex;
+    flex-direction: column;
+    width: 60%;
+    justify-content: center;
+    align-items: center;
+}
+
+.main-page .main-wrap img {
+    display: flex;
+    width: 25%;
+    margin-top: 25%;
+    justify-content: center;
+    align-items: center;
+}
+
+.main-page .main-wrap .chatroom-enter {
+    color: darkolivegreen;
+    margin-top: 10%;
+    font-size: large;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    width: 200px;
+    height: 50px;
+    align-items: center;
+    background-color: white;
+    border-radius: 20px;
+    border: 2px solid darkolivegreen;
+
+    cursor: pointer;
+    transition: transform 0.3s;
+}
+
+.main-page .main-wrap .chatroom-enter:hover {
+    transform: scale(1.02);
+}
+
+.main-page .main-wrap .chatroom-enter:active {
+    transform: scale(0.99);
+}
