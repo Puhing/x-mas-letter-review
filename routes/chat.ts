@@ -3,7 +3,10 @@ import Server from 'socket.io';
 import { Socket } from 'socket.io';
 import { createServer } from 'http';
 import mysql from 'mysql2';
-// import fs from "fs";
+import bodyParser from 'body-parser';
+import { upload } from '../util/fileupload';
+import fs from 'fs';
+import path from 'path';
 
 const app = express();
 const router = express.Router();
@@ -14,35 +17,58 @@ const io = new Server(httpServer, {
         origin: ['http://localhost:3001'],
     },
 });
-const connection = mysql.createConnection({
+const dbConfig = {
     host: 'localhost',
     user: 'root',
     password: 'Sang33hoon3!',
     database: 'review_data',
-});
+};
 
-connection.connect(err => {
-    if (err) {
-        console.error('Error connecting to MySQL:', err);
-        return;
-    }
-    console.log('Connected to MySQL!');
-
-    // 데이터베이스에서 데이터 조회
-    connection.query('SELECT * FROM TB_USER_CHAT', (error, results, fields) => {
-        if (error) throw error;
-        console.log('Query results:', results);
-
-        // 연결 종료
-        connection.end();
-    });
-});
+const currentTime = new Date();
+const month = String(currentTime.getMonth() + 1).padStart(2, '0');
+const day = String(currentTime.getDate()).padStart(2, '0');
+const hours = String(currentTime.getHours()).padStart(2, '0');
+const minutes = String(currentTime.getMinutes()).padStart(2, '0');
+const seconds = String(currentTime.getSeconds()).padStart(2, '0');
+const MonthDayTime = `${month}_${day}_${hours}:${minutes}:${seconds}`;
 
 var roomList = ['public'];
 var roomNow = '';
 
+app.use(bodyParser.urlencoded({ extended: true }));
+
 router.get('/', function (req, res) {
     res.render('chat', { title: 'Chat page' });
+});
+
+router.post('/save_chat', async (req, res) => {
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+        const receivedData = req.body;
+        const { socketId, content, nickname, roomNow } = req.body;
+        
+        const fileName = `Message_${MonthDayTime}.txt`;
+        const filePath = path.join(__dirname, '../public/uploads', fileName);
+        
+        fs.writeFileSync(filePath, content, 'utf-8');
+
+        console.log('파일이 저장되었습니다:', filePath);
+        console.log('데이터 받은거', receivedData);
+
+        const result = await connection.execute('INSERT INTO TB_USER_CHAT (socketId, content, type, addedAt, nickname, roomNow) VALUES (?,?,?,?,?,?)', [
+            socketId,
+            content,
+            1,
+            currentTime,
+            nickname,
+            roomNow,
+        ]);
+        connection.end();
+        res.status(200).json({ message: 'Data saved successfully' });
+    } catch (err) {
+        console.log('err:', err);
+        res.status(500).json({ message: 'Server Error' });
+    }
 });
 
 io.on('connection', socket => {

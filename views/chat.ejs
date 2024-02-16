@@ -20,9 +20,12 @@
             <button class="join-room" type="button" id="joinRoom">참가</button>
         </div>
         <div class="chat-input-box">
-            <button class="add-file">
-                <img src="/img/plus.png" />
-            </button>
+            <div class="add-file" id = "fileBtn">
+                <label class="file-label" for="file">
+                    <img src="/img/plus.png">
+                </label> 
+                <input class="file-input" type="file" id="file" onchange="fileUpload()">
+            </div>
             <input class="chat-input" type="text" id="chatInput" placeholder="메세지를 입력하세요" />
             <button class="chat-send-btn" type="submit" id="chatSendBtn">asd</button>
         </div>
@@ -46,14 +49,16 @@
     const leaveBtn = document.getElementById('leaveBtn');
     const roomDisplayBox = document.getElementById('roomDisplayBox');
     const form = document.getElementById('form');
+    const fileInput = document.getElementById('file');
+    const chatSpace = document.getElementById('chatSpace');
 
+    var socketId, content, nickname, roomNow;
     var nicknameSave;
     var nicknameOther;
-    var roomNow = "public";
+    var roomNow = 'public';
     var roomList = ['public'];
 
     window.onload = function () {
-
         displayRoomList();
 
         socket.on('connect', () => {
@@ -61,17 +66,17 @@
         });
 
         socket.on('current-room', room => {
-            console.log('현재 채팅방 확인용', room)
+            console.log('현재 채팅방 확인용', room);
             roomNow = room;
             $('.current-room').text(`현재 채팅방: ${room}`);
-        })
+        });
 
         socket.on('receive-message', (message, nicknameReceive, room) => {
             console.log('어디보자');
             if (nicknameSave !== nicknameReceive) {
                 console.log('닉넴불일치');
                 nicknameOther = nicknameReceive;
-                if(roomNow === room){
+                if (roomNow === room) {
                     displayOtherMsg(message);
                 } else {
                     console.log('방 불일치');
@@ -85,37 +90,15 @@
             e.preventDefault();
             const message = messageInput.value;
             const room = roomNow;
-
             if (message === '') {
                 return;
             }
+            saveChat();
             displayMyMsg(message);
 
             socket.emit('send-message', message, nicknameSave, room);
             messageInput.value = '';
         });
-
-        // $.ajax({
-        //     url: '/chat/save',
-        //     type: 'POST',
-        //     contentType: 'json',
-        //     data: {
-        //         socketId: socket.id,
-        //         content: messageInput.value,
-        //         nickname: nicknameSave,
-        //         roomNow: roomNow
-        //     },
-        //     success: function(data){
-        //         if(data){
-        //             console.log('채팅 저장 완료');
-        //         } else {
-
-        //         }
-        //     },
-        //     error: function(err){
-        //         console.log('에러메세지:', err);
-        //     }
-        // });
 
         joinRoomBtn.addEventListener('click', e => {
             const room = roomInput.value;
@@ -140,11 +123,36 @@
             }
             console.log('방:', roomNow, '나감');
             socket.emit('leave-room', roomNow);
-            roomNow = roomList[roomList.length-1];
+            roomNow = roomList[roomList.length - 1];
             console.log('룸나우', roomNow, '룸리스트', roomList);
             $('.current-room').text(`현재 채팅방: ${roomList[roomList.length - 1]}`);
         });
     };
+
+    function saveChat() {
+        //여기서 contentType을 안해주는 이유가 자동으로 기본값이 폼데이터 설정되서임//
+        
+        $.ajax({
+            url: '/chat/save_chat',
+            type: 'POST',
+            data: {
+                socketId: socket.id,
+                content: messageInput.value,
+                nickname: nicknameSave,
+                roomNow: roomNow,
+            },
+            success: function (res) {
+                if (res) {
+                    console.log('서버 응답:', res);
+                } else {
+                    console.log('뭐지', res);
+                }
+            },
+            error: function (err) {
+                console.log('에러 발생:', err);
+            },
+        });
+    }
 
     function submitNickname() {
         var nickname = nicknameInput.value;
@@ -152,7 +160,7 @@
 
         if (nickname) {
             $('#popup').removeClass('open');
-            alert('반갑습니다, ' + nickname + '님!');
+            // alert('반갑습니다, ' + nickname + '님!');
             displayMessage(`You connected with ID: ${socket.id} Nickname: ${nicknameSave}`);
         } else {
             alert('닉네임을 제대로 입력해주세요!');
@@ -185,6 +193,35 @@
             div.id = `${roomList[i]}`;
             div.innerHTML = `${roomList[i]}`;
             document.getElementById('roomDisplayBox').append(div);
+        }
+    }
+
+    function fileUpload() {
+        if (fileInput.files.length > 0){
+            const selectedFile = fileInput.files[0];
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const fileContent = e.target.result;
+                const fileDisplay = document.createElement('div');
+                
+                if(selectedFile.type.startsWith('image/')) {
+                    const imgElement = document.createElement('img');
+                    imgElement.src = fileContent;
+
+                    chatSpace.appendChild(imgElement);
+                } else if(selectedFile.type.startsWith('audio/')) {
+                    const audioElement = document.createElement('audio');
+                    audioElement.controls = true;
+                    audioElement.src = fileContent;
+
+                    chatSpace.appendChild(audioElement);
+                } else {
+                    alert ('지원하지 않는 형식의 파일입니다.');
+                }
+                fileInput.value = '';
+            }
+            reader.readAsDataURL(selectedFile);
         }
     }
 </script>

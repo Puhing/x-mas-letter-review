@@ -5,10 +5,13 @@ let storage = multer.diskStorage({
         callback(null, "public/uploads/");
     },
     filename: function (req, file, callback) {
-        if (file.mimetype === 'image/png'){
+        console.log('멀터 진입');
+        if (file.mimetype.startsWith('image/png')) {
             callback(null, Date.now() + "img_" + file.originalname + ".jpeg");
+        } else if (file.mimetype.startsWith('video/') || file.mimetype.startsWith('audio/')) {
+            callback(null, Date.now() + "aud/vid_" + file.originalname + ".webm");
         } else {
-            callback(null, Date.now() + "_" + file.originalname + ".webm");
+            callback(null, Date.now() + "txt_" + file.originalname + ".txt");
         }
     },
 });
