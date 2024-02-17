@@ -20,11 +20,11 @@
             <button class="join-room" type="button" id="joinRoom">참가</button>
         </div>
         <div class="chat-input-box">
-            <div class="add-file" id = "fileBtn">
+            <div class="add-file" id="fileBtn">
                 <label class="file-label" for="file">
-                    <img src="/img/plus.png">
-                </label> 
-                <input class="file-input" type="file" id="file" onchange="fileUpload()">
+                    <img src="/img/plus.png" />
+                </label>
+                <input class="file-input" type="file" id="file" onchange="fileDisplay()" />
             </div>
             <input class="chat-input" type="text" id="chatInput" placeholder="메세지를 입력하세요" />
             <button class="chat-send-btn" type="submit" id="chatSendBtn">asd</button>
@@ -51,6 +51,7 @@
     const form = document.getElementById('form');
     const fileInput = document.getElementById('file');
     const chatSpace = document.getElementById('chatSpace');
+    const userId = getCookie('userId');
 
     var socketId, content, nickname, roomNow;
     var nicknameSave;
@@ -60,6 +61,7 @@
 
     window.onload = function () {
         displayRoomList();
+        console.log(userId,'유저아이디');
 
         socket.on('connect', () => {
             console.log('소켓 연결 확인용');
@@ -73,6 +75,7 @@
 
         socket.on('receive-message', (message, nicknameReceive, room) => {
             console.log('어디보자');
+            
             if (nicknameSave !== nicknameReceive) {
                 console.log('닉넴불일치');
                 nicknameOther = nicknameReceive;
@@ -93,6 +96,7 @@
             if (message === '') {
                 return;
             }
+
             saveChat();
             displayMyMsg(message);
 
@@ -103,19 +107,23 @@
         joinRoomBtn.addEventListener('click', e => {
             const room = roomInput.value;
             socket.emit('join-room', room);
+
             if (!roomList.includes(room) && !room == '') {
                 roomList.push(room);
             } else {
                 roomInput.value = '';
                 return;
             }
+
             displayRoomList();
+
             console.log('방 리스트', roomList, '방 리스트');
             roomInput.value = '';
         });
 
         leaveBtn.addEventListener('click', e => {
             let roomToRemove = roomList.indexOf(roomNow);
+
             if (roomToRemove !== -1) {
                 roomList.splice(roomToRemove, 1);
                 let removeRoomDisplay = document.getElementById(roomNow);
@@ -131,7 +139,6 @@
 
     function saveChat() {
         //여기서 contentType을 안해주는 이유가 자동으로 기본값이 폼데이터 설정되서임//
-        
         $.ajax({
             url: '/chat/save_chat',
             type: 'POST',
@@ -152,6 +159,33 @@
                 console.log('에러 발생:', err);
             },
         });
+    }
+
+    function saveFile() {
+        const fd = new FormData();
+
+        if (fileInput.files.length > 0){
+            fd.append('file', fileInput.files[0]);
+            fd.append('socketId', socket.id);
+            fd.append('nickname', nicknameSave);
+            fd.append('roomNow', roomNow);
+        }
+
+        console.log('폼데이터에 뭐들었나',fd,'폼데이터에 뭐들었나');
+
+        $.ajax({
+            url: '/chat/save_file',
+            type: 'POST',
+            data: fd,
+            contentType: false,
+            processData: false,
+            success: function (res) {
+                console.log('서버 응답:', res);
+            },
+            error: function(err) {
+                console.log('파일 저장 에러 발생:', err);
+            }
+        })
     }
 
     function submitNickname() {
@@ -189,6 +223,7 @@
 
     function displayRoomList() {
         const div = document.createElement('div');
+
         for (let i = 0; i < roomList.length; i++) {
             div.id = `${roomList[i]}`;
             div.innerHTML = `${roomList[i]}`;
@@ -196,33 +231,46 @@
         }
     }
 
-    function fileUpload() {
-        if (fileInput.files.length > 0){
+    function fileDisplay() {
+        if (fileInput.files.length > 0) {
             const selectedFile = fileInput.files[0];
-
             const reader = new FileReader();
+
             reader.onload = function (e) {
                 const fileContent = e.target.result;
                 const fileDisplay = document.createElement('div');
-                
-                if(selectedFile.type.startsWith('image/')) {
+
+                if (selectedFile.type.startsWith('image/')) {
                     const imgElement = document.createElement('img');
                     imgElement.src = fileContent;
+                    saveFile();
 
                     chatSpace.appendChild(imgElement);
-                } else if(selectedFile.type.startsWith('audio/')) {
+                } else if (selectedFile.type.startsWith('audio/')) {
                     const audioElement = document.createElement('audio');
                     audioElement.controls = true;
                     audioElement.src = fileContent;
+                    saveFile();
 
                     chatSpace.appendChild(audioElement);
                 } else {
-                    alert ('지원하지 않는 형식의 파일입니다.');
+                    alert('지원하지 않는 형식의 파일입니다.');
                 }
                 fileInput.value = '';
-            }
+            };
             reader.readAsDataURL(selectedFile);
         }
+    }
+
+    function getCookie(name){
+        const cookies = document.cookie.split('; ');
+        for (const cookie of cookies) {
+            const [cookieName, cookieValue] = cookie.split('=');
+            if (cookieName === name) {
+                return cookieValue;
+            }
+        }
+        return null;
     }
 </script>
 
