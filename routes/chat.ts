@@ -146,12 +146,12 @@ router.post('/save_file', upload.single('file'), async (req, res) => {
         }
 
         const result = await connection.execute('INSERT INTO TB_USER_CHAT (socketId, content, type, addedAt, nickname, roomNow) VALUES (?,?,?,?,?,?)', [
-            socketId || null,
-            receivedFile.path || null,
-            type || null,
-            currentTime || null,
-            nickname || null,
-            roomNow || null,
+            socketId,
+            receivedFile.path,
+            type,
+            currentTime,
+            nickname,
+            roomNow,
         ]);
         connection.end();
         res.status(200).json({ message: 'File data saved successfully' });
