@@ -17,6 +17,7 @@ const io = new Server(httpServer, {
         origin: ['http://localhost:3001'],
     },
 });
+
 const dbConfig = {
     host: 'localhost',
     user: 'root',
@@ -198,6 +199,10 @@ io.on('connection', socket => {
         roomNow = roomList[roomList.length - 1];
         console.log('해당: ', room, '방 나감', '룸리스트', roomList, '룸나우', roomNow);
     });
+
+    socket.on('send-file', file => {
+        io.emit('receive-file', file);
+    }) 
 });
 
 httpServer.listen(3002, () => {

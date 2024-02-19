@@ -60,7 +60,6 @@
     var roomList = ['public'];
 
     window.onload = async function () {
-
         const result = await userCheck();
 
         if (result) {
@@ -101,6 +100,25 @@
                 }
             } else {
                 console.log('닉넴일치');
+            }
+        });
+
+        socket.on('receive-file', fileInfo => {
+            let fileElement;
+
+            if (fileInfo.fileType.startsWith('image/')) {
+                fileElement = document.createElement('img');
+                fileElement.src = fileInfo.fileContent;
+            } else if (fileInfo.fileType.startsWith('audio/')) {
+                fileElement = document.createElement('audio');
+                fileElement.controls = true;
+                fileElement.src = fileInfo.fileContent;
+            } else {
+                alert('지원하지 않는 형식의 파일입니다.');
+            }
+
+            if (fileElement) {
+                chatSpace.appendChild(fileElement);
             }
         });
 
@@ -195,7 +213,7 @@
             contentType: false,
             processData: false,
             success: function (res) {
-                console.log('서버 응답:', res);
+                console.log('파일 저장 성공:', res);
             },
             error: function (err) {
                 console.log('파일 저장 에러 발생:', err);
@@ -255,21 +273,13 @@
 
             reader.onload = function (e) {
                 const fileContent = e.target.result;
-                const fileDisplay = document.createElement('div');
-
-                if (selectedFile.type.startsWith('image/')) {
-                    const imgElement = document.createElement('img');
-                    imgElement.src = fileContent;
+                const fileInfo = {
+                    fileType: selectedFile.type,
+                    fileContent: fileContent,
+                };
+                if (selectedFile.type.startsWith('image/') || selectedFile.type.startsWith('audio/') ) {
+                    socket.emit('send-file', fileInfo);
                     saveFile();
-
-                    chatSpace.appendChild(imgElement);
-                } else if (selectedFile.type.startsWith('audio/')) {
-                    const audioElement = document.createElement('audio');
-                    audioElement.controls = true;
-                    audioElement.src = fileContent;
-                    saveFile();
-
-                    chatSpace.appendChild(audioElement);
                 } else {
                     alert('지원하지 않는 형식의 파일입니다.');
                 }
