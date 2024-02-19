@@ -1,18 +1,17 @@
 import express from 'express';
 import Server from 'socket.io';
 import { createServer } from 'http';
-import mysql from 'mysql2';
+import mysql from 'mysql2/promise';
 import bodyParser from 'body-parser';
 import { upload } from '../util/fileupload';
 import fs from 'fs';
 import path from 'path';
-// import { MIMEType } from 'util';
-// import { Socket } from 'socket.io';
 
 const app = express();
 const router = express.Router();
 const httpServer = createServer(app);
 const publicRoom = 'public';
+
 const io = new Server(httpServer, {
     cors: {
         origin: ['http://localhost:3001'],
@@ -44,12 +43,71 @@ router.get('/', function (req, res) {
     res.render('chat', { title: 'Chat page' });
 });
 
+router.post('/user_check', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const connection = await mysql.createConnection(dbConfig);
+        console.log('바디정보', userId);
+        let check = [];
+
+        check = await connection.execute('SELECT * FROM TB_USER WHERE userId = ?', [userId]);
+        let checkFirst = check[0];
+        console.log('체크안냐오냐왜', checkFirst, '요건뭐노');
+
+        if (check[0].length > 0) {
+            console.log('기존 유저');
+            res.json({ message: 'userId data saved successfully', checkFirst });
+        } else {
+            console.log('새 유저');
+            res.json({ message: 'userId data saved successfully', checkFirst });
+        }
+        connection.end();
+    } catch (err) {
+        console.log('err:', err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+});
+
+router.post('/user_add', async (req, res) => {
+    try {
+        const { userId, nickname } = req.body;
+        const connection = await mysql.createConnection(dbConfig);
+        console.log('유저 추가 바디 정보', nickname, '유저아디', userId, '유저아디');
+
+        let check = [];
+        check = await connection.execute('SELECT * FROM TB_USER WHERE userId = ?', [userId]);
+        let checkFirst = check[0];
+
+        console.log('첵스초코',checkFirst);
+
+        if (check.length > 0) {
+            const result = await connection.execute('INSERT INTO TB_USER (userId, nickname) VALUES (?,?)', [userId, nickname]);
+            console.log('새 유저 추가 성공');
+            res.json({ message: 'userId data saved successfully', result });
+        } else if (userId !== checkFirst[0].userId) {
+            const result = await connection.execute('INSERT INTO TB_USER (userId, nickname) VALUES (?,?)', [userId, nickname]);
+            console.log('새 유저 추가 성공');
+            res.json({ message: 'userId data saved successfully', result });
+        } else if (userId == null || userId === ''){
+            const result = await connection.execute('INSERT INTO TB_USER (userId, nickname) VALUES (?,?)', [userId, nickname]);
+            console.log('시크릿 창 모드 유저 추가 성공');
+            res.json({ message: 'userId data saved successfully', result });
+        } else {
+            console.log('새 유저 추가 실패');
+        }
+        connection.end();
+    } catch (err) {
+        console.log('err:', err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+});
+
 router.post('/save_chat', async (req, res) => {
     try {
         const connection = await mysql.createConnection(dbConfig);
         const receivedData = req.body;
         const { socketId, content, nickname, roomNow } = req.body;
-        
+
         fs.writeFileSync(filePath, content, 'utf-8');
 
         console.log('데이터 받은거', receivedData);
@@ -77,16 +135,16 @@ router.post('/save_file', upload.single('file'), async (req, res) => {
         const receivedData = req.body;
         const receivedFile = req.file;
         const { socketId, file, nickname, roomNow } = req.body;
-        console.log('바디',receivedData,'파일',receivedFile, '마임타입',receivedFile.mimetype);
+        console.log('바디', receivedData, '파일', receivedFile, '마임타입', receivedFile.mimetype);
         let type = '';
-        
-        if(receivedFile.mimetype === 'image/png'){
+
+        if (receivedFile.mimetype === 'image/png') {
             type = '3';
         } else {
             type = '2';
         }
 
-        const result =  await connection.execute('INSERT INTO TB_USER_CHAT (socketId, content, type, addedAt, nickname, roomNow) VALUES (?,?,?,?,?,?)', [
+        const result = await connection.execute('INSERT INTO TB_USER_CHAT (socketId, content, type, addedAt, nickname, roomNow) VALUES (?,?,?,?,?,?)', [
             socketId || null,
             receivedFile.path || null,
             type || null,
@@ -100,7 +158,7 @@ router.post('/save_file', upload.single('file'), async (req, res) => {
         console.log('err:', err);
         res.status(500).json({ message: 'Server Error' });
     }
-})
+});
 
 io.on('connection', socket => {
     socket.join(publicRoom);

@@ -59,9 +59,24 @@
     var roomNow = 'public';
     var roomList = ['public'];
 
-    window.onload = function () {
+    window.onload = async function () {
+
+        const result = await userCheck();
+
+        if (result) {
+            let { existId, existNickname } = result;
+
+            if (existId == userId) {
+                alert('이미 가입한 닉네임이 있어 기존 닉네임으로 채팅을 시작합니다!');
+                nicknameSave = existNickname;
+                $('#popup').removeClass('open');
+                displayMessage(`You connected with ID: ${socket.id} Nickname: ${nicknameSave}`);
+            }
+        } else {
+            console.log('디비에 없는 유저');
+        }
+
         displayRoomList();
-        console.log(userId,'유저아이디');
 
         socket.on('connect', () => {
             console.log('소켓 연결 확인용');
@@ -75,7 +90,7 @@
 
         socket.on('receive-message', (message, nicknameReceive, room) => {
             console.log('어디보자');
-            
+
             if (nicknameSave !== nicknameReceive) {
                 console.log('닉넴불일치');
                 nicknameOther = nicknameReceive;
@@ -164,14 +179,14 @@
     function saveFile() {
         const fd = new FormData();
 
-        if (fileInput.files.length > 0){
+        if (fileInput.files.length > 0) {
             fd.append('file', fileInput.files[0]);
             fd.append('socketId', socket.id);
             fd.append('nickname', nicknameSave);
             fd.append('roomNow', roomNow);
         }
 
-        console.log('폼데이터에 뭐들었나',fd,'폼데이터에 뭐들었나');
+        console.log('폼데이터에 뭐들었나', fd, '폼데이터에 뭐들었나');
 
         $.ajax({
             url: '/chat/save_file',
@@ -182,17 +197,19 @@
             success: function (res) {
                 console.log('서버 응답:', res);
             },
-            error: function(err) {
+            error: function (err) {
                 console.log('파일 저장 에러 발생:', err);
-            }
-        })
+            },
+        });
     }
 
     function submitNickname() {
         var nickname = nicknameInput.value;
-        nicknameSave = nickname;
+        console.log('입력 닉네임', nickname);
 
         if (nickname) {
+            nicknameSave = nickname;
+            userAdd();
             $('#popup').removeClass('open');
             // alert('반갑습니다, ' + nickname + '님!');
             displayMessage(`You connected with ID: ${socket.id} Nickname: ${nicknameSave}`);
@@ -262,7 +279,7 @@
         }
     }
 
-    function getCookie(name){
+    function getCookie(name) {
         const cookies = document.cookie.split('; ');
         for (const cookie of cookies) {
             const [cookieName, cookieValue] = cookie.split('=');
@@ -271,6 +288,56 @@
             }
         }
         return null;
+    }
+
+    async function userCheck() {
+        let userCheckObj;
+        await $.ajax({
+            url: '/chat/user_check',
+            type: 'POST',
+            data: {
+                userId: userId,
+            },
+            success: function (res) {
+                if (res.checkFirst.length > 0) {
+                    let existNickname = res.checkFirst[0].nickname;
+                    let existId = res.checkFirst[0].userId;
+                    let userCheckReturn = {
+                        existId: existId,
+                        existNickname: existNickname,
+                    };
+                    userCheckObj = userCheckReturn;
+                    console.log('유저체크 성공 :', existId, existNickname);
+                } else {
+                    console.log('뭐지', res);
+                }
+            },
+            error: function (err) {
+                console.log('유저체크 에러 발생:', err);
+            },
+        });
+        return userCheckObj;
+    }
+
+    function userAdd() {
+        $.ajax({
+            url: '/chat/user_add',
+            type: 'POST',
+            data: {
+                userId: userId || null,
+                nickname: nicknameSave,
+            },
+            success: function (res) {
+                if (res) {
+                    console.log('유저추가 성공 :', nicknameSave);
+                } else {
+                    console.log('뭐지', res);
+                }
+            },
+            error: function (err) {
+                console.log('유저추가 에러 발생:', err);
+            },
+        });
     }
 </script>
 
