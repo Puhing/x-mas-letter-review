@@ -1,39 +1,16 @@
 import express from 'express';
-import Server from 'socket.io';
-import { createServer } from 'http';
-import mysql from 'mysql2/promise';
 import bodyParser from 'body-parser';
-import { upload } from '../util/fileupload';
+import MySQL from '../MySQL';
 import fs from 'fs';
-import path from 'path';
+import { upload } from '../util/fileupload';
+import { filePath } from '../util/time';
+import { io } from '../util/io';
 
 const app = express();
 const router = express.Router();
-const httpServer = createServer(app);
-const publicRoom = 'public';
-
-const io = new Server(httpServer, {
-    cors: {
-        origin: ['http://localhost:3001'],
-    },
-});
-
-const dbConfig = {
-    host: 'localhost',
-    user: 'root',
-    password: 'Sang33hoon3!',
-    database: 'review_data',
-};
-
 const currentTime = new Date();
-const month = String(currentTime.getMonth() + 1).padStart(2, '0');
-const day = String(currentTime.getDate()).padStart(2, '0');
-const hours = String(currentTime.getHours()).padStart(2, '0');
-const minutes = String(currentTime.getMinutes()).padStart(2, '0');
-const seconds = String(currentTime.getSeconds()).padStart(2, '0');
-const MonthDayTime = `${month}_${day}_${hours}:${minutes}:${seconds}`;
-const fileName = `Message_${MonthDayTime}.txt`;
-const filePath = path.join(__dirname, '../public/uploads', fileName);
+const db = MySQL.write();
+const publicRoom = 'public';
 
 var roomList = ['public'];
 var roomNow = '';
@@ -47,56 +24,44 @@ router.get('/', function (req, res) {
 router.post('/user_check', async (req, res) => {
     try {
         const { userId } = req.body;
-        const connection = await mysql.createConnection(dbConfig);
-        console.log('바디정보', userId);
-        let check = [];
+        console.log('유저체크 바디정보', userId);
 
-        check = await connection.execute('SELECT * FROM TB_USER WHERE userId = ?', [userId]);
-        let checkFirst = check[0];
-        console.log('체크안냐오냐왜', checkFirst, '요건뭐노');
+        let check = await db.one('SELECT * FROM TB_USER WHERE userId = ?', [userId]);
+        console.log('체크안냐오냐왜', check, '요건뭐노');
 
-        if (check[0].length > 0) {
-            console.log('기존 유저');
-            res.json({ message: 'userId data saved successfully', checkFirst });
-        } else {
+        if (check === undefined) {
             console.log('새 유저');
-            res.json({ message: 'userId data saved successfully', checkFirst });
+            res.json({ status: -1, message: 'New user', check });
+        } else {
+            console.log('기존 유저');
+            res.json({ status: 1, message: 'Existing user', check });
         }
-        connection.end();
     } catch (err) {
         console.log('err:', err);
-        res.status(500).json({ message: 'Server Error' });
+        res.status(500).json({ message: 'Server Error(user_check)' });
     }
 });
 
 router.post('/user_add', async (req, res) => {
     try {
         const { userId, nickname } = req.body;
-        const connection = await mysql.createConnection(dbConfig);
         console.log('유저 추가 바디 정보', nickname, '유저아디', userId, '유저아디');
 
-        let check = [];
-        check = await connection.execute('SELECT * FROM TB_USER WHERE userId = ?', [userId]);
-        let checkFirst = check[0];
+        let check = await db.one('SELECT * FROM TB_USER WHERE userId = ?', [userId]);
 
-        console.log('첵스초코',checkFirst);
+        console.log('첵스초코', check);
 
-        if (check.length > 0) {
-            const result = await connection.execute('INSERT INTO TB_USER (userId, nickname) VALUES (?,?)', [userId, nickname]);
+        if (check === undefined) {
+            const result = await db.query('INSERT INTO TB_USER (userId, nickname) VALUES (?,?)', [userId, nickname]);
             console.log('새 유저 추가 성공');
             res.json({ message: 'userId data saved successfully', result });
-        } else if (userId !== checkFirst[0].userId) {
-            const result = await connection.execute('INSERT INTO TB_USER (userId, nickname) VALUES (?,?)', [userId, nickname]);
-            console.log('새 유저 추가 성공');
-            res.json({ message: 'userId data saved successfully', result });
-        } else if (userId == null || userId === ''){
-            const result = await connection.execute('INSERT INTO TB_USER (userId, nickname) VALUES (?,?)', [userId, nickname]);
+        } else if (userId == null || userId === '') {
+            const result = await db.query('INSERT INTO TB_USER (userId, nickname) VALUES (?,?)', [userId, nickname]);
             console.log('시크릿 창 모드 유저 추가 성공');
             res.json({ message: 'userId data saved successfully', result });
         } else {
             console.log('새 유저 추가 실패');
         }
-        connection.end();
     } catch (err) {
         console.log('err:', err);
         res.status(500).json({ message: 'Server Error' });
@@ -105,7 +70,6 @@ router.post('/user_add', async (req, res) => {
 
 router.post('/save_chat', async (req, res) => {
     try {
-        const connection = await mysql.createConnection(dbConfig);
         const receivedData = req.body;
         const { socketId, content, nickname, roomNow } = req.body;
 
@@ -114,7 +78,7 @@ router.post('/save_chat', async (req, res) => {
         console.log('데이터 받은거', receivedData);
         console.log('파일이 저장되었습니다:', filePath);
 
-        const result = await connection.execute('INSERT INTO TB_USER_CHAT (socketId, content, type, addedAt, nickname, roomNow) VALUES (?,?,?,?,?,?)', [
+        const result = await db.query('INSERT INTO TB_USER_CHAT (socketId, content, type, addedAt, nickname, roomNow) VALUES (?,?,?,?,?,?)', [
             socketId,
             content,
             1,
@@ -122,7 +86,6 @@ router.post('/save_chat', async (req, res) => {
             nickname,
             roomNow,
         ]);
-        connection.end();
         res.status(200).json({ message: 'Message data saved successfully' });
     } catch (err) {
         console.log('err:', err);
@@ -132,7 +95,6 @@ router.post('/save_chat', async (req, res) => {
 
 router.post('/save_file', upload.single('file'), async (req, res) => {
     try {
-        const connection = await mysql.createConnection(dbConfig);
         const receivedData = req.body;
         const receivedFile = req.file;
         const { socketId, file, nickname, roomNow } = req.body;
@@ -145,7 +107,7 @@ router.post('/save_file', upload.single('file'), async (req, res) => {
             type = '2';
         }
 
-        const result = await connection.execute('INSERT INTO TB_USER_CHAT (socketId, content, type, addedAt, nickname, roomNow) VALUES (?,?,?,?,?,?)', [
+        const result = await db.query('INSERT INTO TB_USER_CHAT (socketId, content, type, addedAt, nickname, roomNow) VALUES (?,?,?,?,?,?)', [
             socketId,
             receivedFile.path,
             type,
@@ -153,7 +115,6 @@ router.post('/save_file', upload.single('file'), async (req, res) => {
             nickname,
             roomNow,
         ]);
-        connection.end();
         res.status(200).json({ message: 'File data saved successfully' });
     } catch (err) {
         console.log('err:', err);
@@ -202,11 +163,7 @@ io.on('connection', socket => {
 
     socket.on('send-file', file => {
         io.emit('receive-file', file);
-    }) 
-});
-
-httpServer.listen(3002, () => {
-    console.log('Socket.io chat server is running on port 3002');
+    });
 });
 
 export default router;

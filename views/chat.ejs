@@ -309,9 +309,9 @@
                 userId: userId,
             },
             success: function (res) {
-                if (res.checkFirst.length > 0) {
-                    let existNickname = res.checkFirst[0].nickname;
-                    let existId = res.checkFirst[0].userId;
+                if (res.status == 1) {
+                    let existNickname = res.check.nickname;
+                    let existId = res.check.userId;
                     let userCheckReturn = {
                         existId: existId,
                         existNickname: existNickname,
@@ -319,7 +319,7 @@
                     userCheckObj = userCheckReturn;
                     console.log('유저체크 성공 :', existId, existNickname);
                 } else {
-                    console.log('뭐지', res);
+                    console.log('새유저체크', res);
                 }
             },
             error: function (err) {
