@@ -10,6 +10,7 @@ const app = express();
 const router = express.Router();
 const currentTime = new Date();
 const db = MySQL.write();
+
 const publicRoom = 'public';
 
 var roomList = ['public'];
@@ -69,6 +70,9 @@ router.post('/user_add', async (req, res) => {
 });
 
 router.post('/save_chat', async (req, res) => {
+    const conn = await db.pool.getConnection();
+    conn.beginTransaction();
+
     try {
         const receivedData = req.body;
         const { socketId, content, nickname, roomNow } = req.body;
@@ -76,9 +80,9 @@ router.post('/save_chat', async (req, res) => {
         fs.writeFileSync(filePath, content, 'utf-8');
 
         console.log('데이터 받은거', receivedData);
-        console.log('파일이 저장되었습니다:', filePath);
+        console.log('채팅파일이 저장되었습니다:', filePath);
 
-        const result = await db.query('INSERT INTO TB_USER_CHAT (socketId, content, type, addedAt, nickname, roomNow) VALUES (?,?,?,?,?,?)', [
+        const result = await conn.query('INSERT INTO TB_USER_CHAT (socketId, content, type, addedAt, nickname, roomNow) VALUES (?,?,?,?,?,?)', [
             socketId,
             content,
             1,
@@ -86,10 +90,14 @@ router.post('/save_chat', async (req, res) => {
             nickname,
             roomNow,
         ]);
+        await conn.commit(); // 커밋
         res.status(200).json({ message: 'Message data saved successfully' });
     } catch (err) {
         console.log('err:', err);
+        await conn.rollback();
         res.status(500).json({ message: 'Server Error' });
+    } finally {
+        conn.release(); // conn 회수
     }
 });
 
@@ -119,6 +127,21 @@ router.post('/save_file', upload.single('file'), async (req, res) => {
     } catch (err) {
         console.log('err:', err);
         res.status(500).json({ message: 'Server Error' });
+    }
+});
+
+router.get('/load_db', async (req, res) => {
+    try {
+        const conn = await db.pool.getConnection();
+        const { roomNow } = req.query;
+        console.log('리퀘스트의 닉네임', roomNow);
+        const result = await conn.execute('SELECT * FROM TB_USER_CHAT WHERE roomNow = ?', [roomNow]);
+        console.log('채팅 로드 리저트', result);
+
+        res.json({ status: 1, message: 'Chat data loaded successfully', result });
+    } catch (err) {
+        console.log('err:', err);
+        res.status(500).json({ message: 'Chat Load Server Error' });
     }
 });
 

@@ -70,6 +70,7 @@
                 nicknameSave = existNickname;
                 $('#popup').removeClass('open');
                 displayMessage(`You connected with ID: ${socket.id} Nickname: ${nicknameSave}`);
+                loadChat();
             }
         } else {
             console.log('디비에 없는 유저');
@@ -85,6 +86,10 @@
             console.log('현재 채팅방 확인용', room);
             roomNow = room;
             $('.current-room').text(`현재 채팅방: ${room}`);
+
+            while (chatSpace.children[1]) {
+                chatSpace.removeChild(chatSpace.lastChild);
+            }
         });
 
         socket.on('receive-message', (message, nicknameReceive, room) => {
@@ -240,6 +245,7 @@
         const div = document.createElement('div');
         div.textContent = message;
         document.getElementById('chatSpace').append(div);
+        chatSpace.scrollTop = chatSpace.scrollHeight;
     }
 
     function displayMyMsg(message) {
@@ -247,6 +253,7 @@
         div.innerHTML = `${message}`;
         document.getElementById('chatSpace').append(div);
         div.classList.add('myMessage');
+        chatSpace.scrollTop = chatSpace.scrollHeight;
     }
 
     function displayOtherMsg(message) {
@@ -254,6 +261,7 @@
         div.innerHTML = `${nicknameOther}: ${message}`;
         document.getElementById('chatSpace').append(div);
         div.classList.add('otherMessage');
+        chatSpace.scrollTop = chatSpace.scrollHeight;
     }
 
     function displayRoomList() {
@@ -277,7 +285,7 @@
                     fileType: selectedFile.type,
                     fileContent: fileContent,
                 };
-                if (selectedFile.type.startsWith('image/') || selectedFile.type.startsWith('audio/') ) {
+                if (selectedFile.type.startsWith('image/') || selectedFile.type.startsWith('audio/')) {
                     socket.emit('send-file', fileInfo);
                     saveFile();
                 } else {
@@ -348,6 +356,35 @@
                 console.log('유저추가 에러 발생:', err);
             },
         });
+    }
+
+    function loadChat() {
+        $.ajax({
+            url:'/chat/load_db',
+            async: true,
+            type: 'GET',
+            data: {
+                roomNow: roomNow,
+            },
+            success: function (res) {
+                if (res) {
+                    console.log('디비 채팅 로드 성공: ', res.result[0][0].content, '길이', res.result[0].length);
+                    for (let i = 0 ; i < res.result[0].length; i ++) {
+                        if (res.result[0][i].nickname == nicknameSave) {
+                            displayMyMsg(res.result[0][i].content);
+                        } else {
+                            nicknameOther = res.result[0][i].nickname;
+                            displayOtherMsg(res.result[0][i].content);
+                        }
+                    }
+                } else {
+                    console.log('뭐지', res);
+                }
+            },
+            error: function (err) {
+                console.log('디비 채팅 로드 실패:', err);
+            }
+        })
     }
 </script>
 
